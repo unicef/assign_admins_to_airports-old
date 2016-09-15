@@ -6,7 +6,7 @@ var host = config.documentdb.host;
 var masterKey = config.documentdb.primary_key;
 var client = new DocumentClient(host, {masterKey: masterKey});
 var alpha3_alpha2 = require('../public/ISO-ZZZZ_to_ISO-WWWW_country_codes.json');
-var fs = require('fs');
+
 // /**
 //  * Get airports per country
 //  * Forms select query to fetch all airport per country

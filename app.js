@@ -5,8 +5,6 @@ var polygons = require('./assign_admins_to_airports/polygons');
 var blob_account = config.blob.storage_account;
 var blob_container_name = config.blob.container;
 var blob_storage_key = config.blob.key1;
-var jsts = require('jsts');
-var geojsonReader = new jsts.io.GeoJSONReader();
 
 var blobSvc = azure.createBlobService(blob_account, blob_storage_key);
 
@@ -61,7 +59,9 @@ function dl_blob_and_group_airports(blob_container_name, country_name) {
   var admin_level = country_name.match(/\d/)[0];
   return new Promise(function(resolve, reject) {
     blobSvc.getBlobToText(blob_container_name, country_name, function(err, data) {
-      if (err) {}
+      if (err) {
+        console.log(err);
+      }
       if (data !== 'undefined') {
         var country_admins = JSON.parse(data);
         if (country_admins) {
@@ -112,27 +112,8 @@ function get_airports_and_match_admin(country_admins, admin_level) {
   return new Promise(function(resolve, reject) {
     docdb.fetch_airports_per_country(country_admins)
     .then(function(airports) {
-      var jstsPolygons = polygons.get_jsts_polygons(country_admins);
-
-      airports.forEach(function(e) {
-
-        var point = {
-          type: 'Point',
-          coordinates: e.geometry.coordinates
-        };
-        var jstsPoint = geojsonReader.read(point);
-        var match = jstsPolygons.filter(function(jstsPolygon) {
-          return jstsPoint.within(jstsPolygon);
-        });
-        if (match.length > 0) {
-          if (admin_level === '1') {
-            e.properties.admin_1_info = country_admins.features[match[0].__index].properties;
-          } else {
-            e.properties.admin_2_info = country_admins.features[match[0].__index].properties;
-          }
-        }
-      });
-      resolve(airports);
+      var updated_airports = polygons.match_airport_to_admin(airports);
+      resolve(updated_airports);
     });
   });
 }
@@ -149,7 +130,7 @@ function fetch_blob_names(blob_container_name) {
       if (!err) {
         resolve(result.entries.map(entry => entry.name));
       } else {
-        // logger.log('error', {error: err});
+        console.log(err);
       }
     });
   });

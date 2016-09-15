@@ -34,22 +34,23 @@ exports.get_jsts_polygons = function(country_admins) {
  * @return{array} airports - array of airports per country
  */
 exports.match_airport_to_admin = function(country_admins, airports, admin_level) {
-  return new Promise(function(resolve, reject) {
-    var jstsPolygons = this.get_jsts_polygons(country_admins);
-    airports.forEach(function(e) {
-      var point = {
-        type: 'Point',
-        coordinates: e.geometry.coordinates
-      };
-
-      var jstsPoint = geojsonReader.read(point);
-      var match = jstsPolygons.filter(function(jstsPolygon) {
-        return jstsPoint.within(jstsPolygon);
-      });
-      if (match.length > 0) {
-        console.log(admin_level, country_admins.features[match[0].__index]);
-      }
+  var jstsPolygons = this.get_jsts_polygons(country_admins);
+  airports.forEach(function(e) {
+    var point = {
+      type: 'Point',
+      coordinates: e.geometry.coordinates
+    };
+    var jstsPoint = geojsonReader.read(point);
+    var match = jstsPolygons.filter(function(jstsPolygon) {
+      return jstsPoint.within(jstsPolygon);
     });
-    resolve(airports);
+    if (match.length > 0) {
+      if (admin_level === '1') {
+        e.properties.admin_1_info = country_admins.features[match[0].__index].properties;
+      } else {
+        e.properties.admin_2_info = country_admins.features[match[0].__index].properties;
+      }
+    }
   });
+  return airports;
 };

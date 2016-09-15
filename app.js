@@ -112,7 +112,7 @@ function get_airports_and_match_admin(country_admins, admin_level) {
   return new Promise(function(resolve, reject) {
     docdb.fetch_airports_per_country(country_admins)
     .then(function(airports) {
-      var updated_airports = polygons.match_airport_to_admin(airports);
+      var updated_airports = polygons.match_airport_to_admin(country_admins, airports, admin_level);
       resolve(updated_airports);
     });
   });

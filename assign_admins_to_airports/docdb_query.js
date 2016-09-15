@@ -2,11 +2,10 @@ var config = require('../config');
 var dbLink = 'dbs/' + config.documentdb.db;
 var collLink = dbLink + '/colls/' + config.documentdb.collection;
 var DocumentClient = require('documentdb').DocumentClient;
-var fs = require('fs');
 var host = config.documentdb.host;
 var masterKey = config.documentdb.primary_key;
 var client = new DocumentClient(host, {masterKey: masterKey});
-var alpha3_alpha2 = JSON.parse(fs.readFileSync('./public/country_codes.json'));
+var alpha3_alpha2 = require('./public/country_codes.json');
 
 // /**
 //  * Get airports per country
@@ -35,16 +34,20 @@ var alpha3_alpha2 = JSON.parse(fs.readFileSync('./public/country_codes.json'));
 function form_query(country_admins) {
   var alpha3 = country_admins.features[0].properties.ISO;
   var alpha2 = alpha3_alpha2[alpha3];
-  return {
-    query: `
-    SELECT * FROM airports a where a.properties.country_code=@alpha2
-    `,
-      // SELECT a.id, a.geometry.coordinates FROM airports a where a.properties.country_code=@alpha2
-    parameters: [{
-      name: '@alpha2',
-      value: alpha2
-    }]
-  };
+  if(alpha2.match(/A-Z[2])){
+    return {
+      query: `
+      SELECT * FROM airports a where a.properties.country_code=@alpha2
+      `,
+        // SELECT a.id, a.geometry.coordinates FROM airports a where a.properties.country_code=@alpha2
+      parameters: [{
+        name: '@alpha2',
+        value: alpha2
+      }]
+    } else {
+        throw 'Invalid alpha 2 code!';
+    }
+  }
 }
 
 /**
@@ -80,6 +83,7 @@ exports.update_airport = function(airport) {
         console.log(err);
       } else {
         console.log(airport.properties.name);
+        // Pause a moment to avoid documentdb throttling
         setTimeout(function() {
           resolve();
         }, 200);

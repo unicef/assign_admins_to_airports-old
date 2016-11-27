@@ -1,7 +1,7 @@
 var elasticsearch = require('es');
 var fs = require('fs');
 var config = require('./config');
-var airports = JSON.parse(fs.readFileSync('../import_airports_to_docdb/airports.geojson', 'utf8'));
+var airports = JSON.parse(fs.readFileSync('./public/airports.geojson', 'utf8'));
 var bluebird = require('bluebird');
 var counter = 0;
 var options = {
@@ -10,13 +10,7 @@ var options = {
 };
 var es = elasticsearch(options);
 
-var options_airports = {
-  _index: 'airports',
-  _type: 'airport',
-  refresh: true
-};
-var es_airport = elasticsearch(options_airports);
-
+var es_airport = elasticsearch();
 main();
 function select_best_admin(admins) {
   var admin = admins.filter(function(admin) { return admin.pub_src != 'gadm2-8';}).sort(function(a, b) {
@@ -44,44 +38,61 @@ function search_coords(airport, i) {
   console.log(counter, i);
   return new Promise(function(resolve, reject) {
     es.search({
-      query: {
-        match_all: {
-
-        }
-      },
-      filter: {
-        geo_shape: {
-          geometry: {
-            relation: 'intersects',
-            shape: {
-              coordinates: airport.geometry.coordinates,
-              type: 'point'
+// ElasticSearch 2.x
+//      "query": {
+//        match_all: {
+//        }
+//      },
+//      "filter": {
+//        "geo_shape": {
+//          "geometry": {
+//            "relation": 'intersects',
+//            "shape": {
+//              "coordinates": airport.geometry.coordinates,
+//              "type": 'point'
+//            }
+//          }
+//        }
+//      }
+      "query": {
+        "geo_shape": {
+          "geometry": {
+           "relation": "intersects",
+           "shape": {
+              "type":   "point",
+              "coordinates":airport.geometry.coordinates
             }
-          }
+          } 
         }
       }
     }, function(err, data) {
       if (err) {
         console.log(err);
+        resolve();
       } else {
 	if (data.hits.hits.length > 0) {
           var admins = data.hits.hits.map(function(admin) { return admin._source.properties;});
           airport.properties.admin_info = select_best_admin(admins);
-          console.log(airport.properties.admin_info);
-console.log('\n\n\n');
-	 // es_airport.index(options_airports, airport, function(err, data) {
-         //   if (err) {
-         //     return reject(err);
-         //   }
-         //   return resolve();
-	  //});
+	  var options_airports = {
+	    _index: 'airports',
+	    _type: 'airport',
+	    refresh: true
+	  };
+          if (airport.properties.moddate) {
+            airport.properties.moddate = new Date(airport.properties.moddate);
+          };
+          airport.properties.date_until = new Date();
+	  es_airport.index(options_airports, airport, function(err, data) {
+            if (err) {
+	     console.log(err);
+             resolve(); 
+            }
+           setTimeout(function(){resolve();}, 100); 
+	  });
 	} else {
           console.log('no admin:', airport.properties.country_name, airport.geometry.coordinates);
+	  resolve();
         }     
-        resolve();
-        // data.hits.hits.forEach(function(h){
-         //   console.log(airport.properties.country_code, airport.geometry.coordinates, h._source.properties,data.hits.hits.length, '!!!!!\n\n')
-        // })
       }
     });
   });
